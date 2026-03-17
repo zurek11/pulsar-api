@@ -1,0 +1,21 @@
+# Pulsar API — manual HTTP requests
+# Run with: JetBrains HTTP Client, VS Code REST Client, or httpx CLI
+# Server: uv run uvicorn main:app --reload --port 8000
+
+@base = http://localhost:8000
+
+### Health check
+GET {{base}}/api/health
+Accept: application/json
+
+### Chat — send a message (SSE stream)
+POST {{base}}/api/chat
+Content-Type: application/json
+
+{
+  "message": "What is retrieval-augmented generation?"
+}
+
+### Clear chat history
+DELETE {{base}}/api/chat/history
+Accept: application/json

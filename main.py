@@ -1,13 +1,20 @@
+"""Pulsar API — FastAPI application factory."""
+
 from fastapi import FastAPI
 
-app = FastAPI()
+from api.middleware import register_middleware
+from api.routes import chat, health
+from core.logging import configure_logging
 
+configure_logging()
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    return {"message": "Hello World"}
+app = FastAPI(
+    title="Pulsar API",
+    description="RAG pipeline + LLM orchestration backend for pulsar-chat.",
+    version="0.1.1",
+)
 
+register_middleware(app)
 
-@app.get("/hello/{name}")
-async def say_hello(name: str) -> dict[str, str]:
-    return {"message": f"Hello {name}"}
+app.include_router(health.router)
+app.include_router(chat.router)
