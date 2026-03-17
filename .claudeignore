@@ -1,0 +1,22 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+
+# Data (large files)
+data/chroma/
+data/documents/*.pdf
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
