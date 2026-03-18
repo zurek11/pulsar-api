@@ -7,6 +7,7 @@ class ChatRequest(BaseModel):
     """Incoming chat message from the frontend."""
 
     message: str
+    session_id: str = "default"
 
 
 class StatusResponse(BaseModel):

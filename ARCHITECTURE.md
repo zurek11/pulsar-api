@@ -422,73 +422,35 @@ and works through the feedback interactively.
 
 ## Implementation Backlog
 
-### What exists now (mockup — v0.1.x)
+### ✅ Phase 1 — Naive RAG (v0.3.0, complete)
 
-All three API endpoints are live but backed by stubs. No real RAG or LLM wired up yet.
+All endpoints are live and backed by real RAG. The pipeline is fully wired end-to-end.
 
-| Endpoint | Mockup behaviour | Blocker to make real |
-| -------- | ---------------- | -------------------- |
-| `GET /api/health` | Returns `{"status":"ok","rag_ready":false}` | Wire `rag_ready` to an actual ChromaDB collection existence check |
-| `POST /api/chat` | Streams a canned sentence word-by-word via SSE | Needs RAG engine + Anthropic client (see Phase 1 below) |
-| `DELETE /api/chat/history` | Clears an in-memory list | Works as-is; extend when session management is added |
+| Endpoint | Behaviour |
+| -------- | --------- |
+| `GET /api/health` | Returns `rag_ready: true` when ChromaDB collection is populated |
+| `POST /api/chat` | Retrieves top-k chunks → builds augmented prompt → streams Claude response via SSE |
+| `DELETE /api/chat/history` | Clears in-memory conversation history for the session |
 
-### Next iteration: Phase 1 — wire up real RAG (Naive RAG)
+Modules delivered:
 
-The items below must be completed before `rag_ready` can return `true` and real answers can flow.
+- `scripts/download_dataset.py` — downloads arXiv space engineering papers into `data/documents/`
+- `rag/ingest.py` — `SimpleDirectoryReader` → `SentenceSplitter` → `HuggingFaceEmbedding` → ChromaDB; CLI via `python -m rag.ingest`
+- `rag/retriever.py` — loads existing ChromaDB index, exposes `async retrieve(query, top_k)`
+- `rag/engine.py` — `RAGEngine`: orchestrates retrieval + prompt building + LLM streaming; owns per-session chat history
+- `llm/client.py` — `LLMClient`: thin async wrapper around `anthropic.AsyncAnthropic`
+- `llm/streaming.py` — `tokens_to_sse()`: formats token stream as SSE byte frames
+- `llm/prompts.py` — `SYSTEM_PROMPT` + `build_prompt(query, chunks, history)`
+- `api/deps.py` — `get_rag_engine()` singleton via `lru_cache`
+- 22 passing tests — unit (schemas, prompts) + integration (all three endpoints, mocked engine)
 
-#### 1. `core/config.py`
-- [ ] Validate `anthropic_api_key` is set (raise at startup if missing, not at request time)
+### Next: Phase 2 — Hybrid Retrieval
 
-#### 2. `models/schemas.py`
-- [ ] Add `session_id: str = "default"` to `ChatRequest` to support future multi-session work
-
-#### 3. `rag/ingest.py`
-- [ ] Document loader: PyMuPDF for PDFs (`pymupdf`), plain `open()` for Markdown
-- [ ] Chunking: `llama_index.core.node_parser.SentenceSplitter` (512 tokens, 50 overlap)
-- [ ] Embedding: `sentence-transformers/all-MiniLM-L6-v2` via `llama_index` `HuggingFaceEmbedding`
-- [ ] Persistence: ChromaDB collection at `chroma_persist_dir` from settings
-- [ ] CLI entry-point: `python -m rag.ingest` reads all files from `data/documents/`
-
-#### 4. `rag/retriever.py`
-- [ ] Wrap ChromaDB collection with `llama_index` `VectorStoreIndex`
-- [ ] Expose `async retrieve(query: str, top_k: int) -> list[NodeWithScore]`
-
-#### 5. `rag/prompts.py`
-- [ ] System prompt that injects retrieved context and instructs the model to cite sources
-- [ ] Prompt builder: `build_prompt(query, chunks, history) -> list[MessageParam]`
-
-#### 6. `llm/client.py`
-- [ ] Thin wrapper around `anthropic.AsyncAnthropic`
-- [ ] `async stream_response(messages) -> AsyncIterator[str]` yielding raw text tokens
-
-#### 7. `llm/streaming.py`
-- [ ] Helper to convert `anthropic.Stream` events into plain `str` tokens
-- [ ] Handle `content_block_delta`, `message_stop`, and error events
-
-#### 8. `rag/engine.py`
-- [ ] `RAGEngine` class: owns retriever + LLM client
-- [ ] `async stream_response(message, history) -> AsyncIterator[str]`
-  1. embed + retrieve top-k chunks
-  2. build augmented prompt
-  3. stream from Claude, yield tokens
-  4. yield `"[DONE]"` sentinel at end
-
-#### 9. `api/deps.py`
-- [ ] Add `get_rag_engine() -> RAGEngine` singleton (constructed once at startup)
-
-#### 10. `api/routes/chat.py`
-- [ ] Replace `_mock_token_stream` with `rag_engine.stream_response(message, history)`
-- [ ] Inject `RAGEngine` via `Depends(get_rag_engine)`
-- [ ] Move `_chat_history` management into `RAGEngine` (or a dedicated `SessionStore`)
-
-#### 11. `api/routes/health.py`
-- [ ] Replace hardcoded `rag_ready=False` with a real collection existence check via the engine
-
-#### 12. Tests
-- [ ] `tests/unit/test_schemas.py` — validate `ChatRequest`, `HealthResponse`
-- [ ] `tests/unit/test_prompts.py` — assert prompt builder output
-- [ ] `tests/integration/test_health.py` — `GET /api/health` returns 200
-- [ ] `tests/integration/test_chat.py` — SSE stream contains tokens + `[DONE]`, mock LLM client
+- Add BM25 lexical search alongside semantic search
+- Two-stage retrieval: broad fetch (top-50) → cross-encoder re-ranking (top-5)
+- Metadata filtering (source, date, category)
+- Experiment with chunking strategies: semantic chunking, parent-child chunks
+- Switch embeddings from `all-MiniLM-L6-v2` to Voyage AI for better retrieval quality
 
 ---
 

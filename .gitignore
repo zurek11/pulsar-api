@@ -13,9 +13,11 @@ build/
 .env.*
 !.env.example
 
-# Data (large files)
-data/chroma/
-data/documents/*.pdf
+# Data (large files — keep folder structure, ignore contents)
+data/chroma/*
+!data/chroma/.gitkeep
+data/documents/*
+!data/documents/.gitkeep
 
 # Testing
 .pytest_cache/
