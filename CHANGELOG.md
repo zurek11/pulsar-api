@@ -2,6 +2,42 @@
 
 All notable changes to Pulsar API — the RAG-powered backend for the Pulsar learning project.
 
+## [0.3.0] — 2026-03-18 — "Signal Acquired"
+
+The RAG pipeline is real. Ask it about space propulsion, Mars colonisation, or Starlink
+and it reaches into the knowledge base, pulls the relevant chunks, and streams back a
+grounded answer courtesy of Claude. Phase 1 is done — the signal is no longer hollow.
+
+### 🎉 Added
+
+- `scripts/download_dataset.py` — fetches 10 arXiv space engineering papers into `data/documents/`
+- `rag/ingest.py` — full ingestion pipeline: `SimpleDirectoryReader` → `SentenceSplitter` (512 tokens, 50 overlap) → `HuggingFaceEmbedding` → ChromaDB persistent store; runnable via `python -m rag.ingest`
+- `rag/retriever.py` — `Retriever` class: loads existing ChromaDB index, async top-k semantic search via `asyncio.to_thread`
+- `rag/engine.py` — `RAGEngine`: the orchestrator; retrieves context, builds prompt, streams Claude, owns per-session in-memory history
+- `llm/client.py` — `LLMClient`: async wrapper around `anthropic.AsyncAnthropic` with token streaming
+- `llm/streaming.py` — `tokens_to_sse()`: converts token stream → SSE byte frames with `[DONE]` sentinel
+- `llm/prompts.py` — `SYSTEM_PROMPT` (space engineering domain) + `build_prompt()` with context injection and clean history (no bloat from repeated retrieved text)
+- `api/deps.py` — `get_rag_engine()` singleton via `lru_cache`; engine constructed once at startup
+- `data/chroma/.gitkeep`, `data/documents/.gitkeep` — folder structure tracked in git, contents gitignored
+
+### ♻️ Changed
+
+- `GET /api/health` — `rag_ready` now reflects real ChromaDB collection state
+- `POST /api/chat` — replaced mock token stream with real RAG pipeline; added `session_id` to `ChatRequest`
+- `DELETE /api/chat/history` — history now managed by `RAGEngine`, not a module-level list
+- `core/config.py` — added `project_root`, `chroma_collection_name`; `chroma_persist_dir` now absolute
+- `.gitignore` — `data/chroma/*` and `data/documents/*` ignore contents but keep folders
+
+### 🧪 Tested
+
+- 22 passing tests (unit + integration)
+- `tests/unit/test_schemas.py` — `ChatRequest`, `HealthResponse`, `StatusResponse`
+- `tests/unit/test_prompts.py` — prompt builder: context injection, history preservation, fallback
+- `tests/integration/test_health.py` — health endpoint with mocked engine readiness
+- `tests/integration/test_chat.py` — SSE format, token streaming, session routing, history clearing
+
+---
+
 ## [0.2.0] — 2026-03-17 — "First Contact"
 
 The API is alive. Real endpoints, real structure, real streaming — mock data for now,

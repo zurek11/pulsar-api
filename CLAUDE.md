@@ -53,7 +53,9 @@ tests/
 ├── integration/    # Integration tests (API + RAG)
 └── conftest.py     # Shared fixtures
 data/
-└── documents/      # RAG knowledge base (PDF/MD files about RAG)
+└── documents/      # RAG knowledge base (space engineering papers, PDFs)
+scripts/
+└── download_dataset.py  # Downloads arXiv space engineering papers into data/documents/
 ```
 
 ## Architecture & Decisions
@@ -81,7 +83,8 @@ understand why a specific technology or pattern was chosen.
 - `docker run -p 8000:8000 --env-file .env pulsar-api` — run container
 
 ### Document Ingestion
- 
+
+- `uv run python scripts/download_dataset.py` — download arXiv space engineering papers into `data/documents/`
 - `uv run python -m rag.ingest` — ingest all files from `data/documents/`
 
 ## Code Conventions
